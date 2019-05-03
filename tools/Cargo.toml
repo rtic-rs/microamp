@@ -1,0 +1,16 @@
+[package]
+authors = ["Jorge Aparicio <jorge@japaric.io>"]
+edition = "2018"
+name = "microamp-tools"
+version = "0.1.0"
+
+[dependencies]
+cargo-project = "0.2.2"
+clap = "2.33.0"
+exitfailure = "0.5.1"
+failure = "0.1.5"
+filetime = "0.2.5"
+rustc_version = "0.2.3"
+tempdir = "0.3.7"
+walkdir = "2.2.7"
+xmas-elf = "0.6.2"

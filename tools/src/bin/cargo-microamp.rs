@@ -122,7 +122,11 @@ fn run() -> Result<i32, failure::Error> {
     let now = FileTime::from_system_time(SystemTime::now());
     match artifact {
         Artifact::Bin(bin) => {
-            filetime::set_file_times(root.join(format!("src/bin/{}.rs", bin)), now, now)?
+            if bin == project.name() {
+                filetime::set_file_times(root.join("src/main.rs"), now, now)?
+            } else {
+                filetime::set_file_times(root.join(format!("src/bin/{}.rs", bin)), now, now)?
+            }
         }
 
         Artifact::Example(ex) => {

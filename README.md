@@ -36,12 +36,14 @@ that please let me know in the issue tracker!
 
 ## Known issues
 
-- Sending a function pointer or trait object between the cores is potentially
-  unsound, or at least a Very Bad idea.
+- Sending / sharing a function pointer or trait object between the cores is
+  potentially unsound, or at least a Very Bad idea but this is not *fully*
+  rejected in the case of function pointers.
 
-The plain is to make the framework prevent this operation at compile time but
-this can't be implemented today -- at least in the way I envision it -- due to
-limitations in the language (e.g. lack of Variadic Generics).
+The framework tries to prevent this operation at compile time. All trait objects
+are currently rejected, but only function pointers with 0 to 12 arguments are
+rejected. To reject *all* function pointers we would need the Variadic Generics
+(VG) language feature.
 
 ## Example
 

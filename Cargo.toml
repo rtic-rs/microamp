@@ -2,15 +2,7 @@
 authors = ["Jorge Aparicio <jorge@japaric.io>"]
 edition = "2018"
 name = "microamp"
-version = "0.1.0"
-
-[lib]
-proc-macro = true
+version = "0.1.0-alpha.1"
 
 [dependencies]
-proc-macro2 = "0.4.29"
-quote = "0.6.12"
-
-[dependencies.syn]
-version = "0.15.33"
-features = ["full"]
+microamp-macros = { version = "0.1.0-alpha.1", path = "macros" }

@@ -2,7 +2,7 @@
 authors = ["Jorge Aparicio <jorge@japaric.io>"]
 edition = "2018"
 name = "microamp-tools"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 
 [dependencies]
 cargo-project = "0.2.2"

@@ -4,7 +4,7 @@ main() {
     ( cd tools && cargo install --path . --debug -f )
 
     if [ $TARGET = x86_64-unknown-linux-gnu ]; then
-        cargo check
+        cargo test
     else
         ( cd dummy && cargo microamp --bin dummy --check )
     fi

@@ -2,6 +2,7 @@
 #![deny(rust_2018_idioms)]
 #![deny(warnings)]
 
+use core::{fmt, iter::FromIterator};
 use std::{
     collections::BTreeMap,
     env, fs,
@@ -284,7 +285,7 @@ fn run() -> Result<i32, failure::Error> {
         }
 
         // address -> (size, name)
-        let mut shared_symbols: Option<BTreeMap<_, _>> = None;
+        let mut base: Option<(String, Symbols)> = None;
         for i in 0..cores {
             let mut c = cargo();
             c.args(&[
@@ -337,8 +338,8 @@ fn run() -> Result<i32, failure::Error> {
             if let Some(symtab) = elf.find_section_by_name(".symtab") {
                 match symtab.get_data(&elf).map_err(failure::err_msg)? {
                     SectionData::SymbolTable32(entries) => {
-                        if let Some(shared_symbols) = &shared_symbols {
-                            let symbols: BTreeMap<_, _> = entries
+                        if let Some((base_filename, base_symbols)) = &base {
+                            let symbols = entries
                                 .iter()
                                 .filter_map(|entry| {
                                     let size = entry.size();
@@ -351,18 +352,20 @@ fn run() -> Result<i32, failure::Error> {
                                         None
                                     }
                                 })
-                                .collect();
+                                .collect::<Symbols>();
 
                             ensure!(
-                                &symbols == shared_symbols,
-                                "({}) the memory layout of the `.shared` section doesn't \
-                                 match other files\n{:#?}\n{:#?}'",
+                                &symbols == base_symbols,
+                                "the layout of the `.shared` section doesn't match\n\
+                                 {}:\n{:#?}\n{}\n{:#?}",
+                                base_filename,
+                                base_symbols,
                                 filename,
                                 symbols,
-                                shared_symbols,
                             );
                         } else {
-                            shared_symbols = Some(
+                            base = Some((
+                                filename,
                                 entries
                                     .iter()
                                     .filter_map(|entry| {
@@ -377,12 +380,14 @@ fn run() -> Result<i32, failure::Error> {
                                         }
                                     })
                                     .collect(),
-                            )
+                            ))
                         }
                     }
+
                     SectionData::SymbolTable64(_) => {
-                        bail!("64-bit ELF files are currently unsupported")
+                        bail!("64-bit ELF files are not currently supported")
                     }
+
                     _ => bail!("malformed .symtab section"),
                 }
             }
@@ -390,4 +395,61 @@ fn run() -> Result<i32, failure::Error> {
     }
 
     Ok(0)
+}
+
+#[derive(PartialEq)]
+struct Symbols {
+    entries: BTreeMap<u64, Symbol>,
+}
+
+impl FromIterator<(u64, (u64, Option<String>))> for Symbols {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = (u64, (u64, Option<String>))>,
+    {
+        Symbols {
+            entries: iter
+                .into_iter()
+                .map(|(address, (size, name))| (address, Symbol { size, name }))
+                .collect(),
+        }
+    }
+}
+
+impl fmt::Debug for Symbols {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        struct Hex(u64);
+
+        impl fmt::Debug for Hex {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{:#08x}", self.0)
+            }
+        }
+
+        let mut s = f.debug_map();
+        for (address, symbol) in &self.entries {
+            s.entry(&Hex(*address), symbol);
+        }
+
+        s.finish()
+    }
+}
+
+#[derive(PartialEq)]
+struct Symbol {
+    size: u64,
+    name: Option<String>,
+}
+
+impl fmt::Debug for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = f.debug_struct("Symbol");
+        s.field("size", &self.size);
+        if let Some(name) = &self.name {
+            s.field("name", name);
+        } else {
+            s.field("name", &"?");
+        }
+        s.finish()
+    }
 }

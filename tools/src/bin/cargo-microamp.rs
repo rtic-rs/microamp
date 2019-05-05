@@ -294,9 +294,7 @@ fn run() -> Result<i32, failure::Error> {
                 "-C",
                 &format!("link-arg=-Tcore{}.x", i),
                 "-C",
-                "link-arg=-L",
-                "-C",
-                &format!("link-arg={}", td.path().display()),
+                &format!("link-arg={}", obj.display()),
             ]);
             if verbose {
                 eprintln!("{:?}", c);

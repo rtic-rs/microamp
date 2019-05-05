@@ -54,27 +54,27 @@ cores).
 #![no_main]
 #![no_std]
 
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicU8, Ordering};
 
 use arm_dcc::dprintln;
 use microamp::shared;
-use panic_dcc as _; // panic handler
+// use panic_halt as _;
+use panic_dcc as _;
 use zup_rt::entry;
 
-// used as a mutex
-#[shared] // <- means: shared between all the cores
-static SEMAPHORE: AtomicUsize = AtomicUsize::new(CORE0);
+// non-atomic variable
+#[shared] // <- means: visible to all the cores
+static mut SHARED: u64 = 0;
+
+// used to synchronize access to `SHARED`
+#[shared]
+static SEMAPHORE: AtomicU8 = AtomicU8::new(CORE0);
 
 // possible values of SEMAPHORE
-const CORE0: usize = 0;
-const CORE1: usize = 1;
-const LOCKED: usize = 2;
+const CORE0: u8 = 0;
+const CORE1: u8 = 1;
+const LOCKED: u8 = 2;
 
-// unsynchronized (unsafe) static variable
-#[shared]
-static mut SHARED: usize = 0;
-
-// program entry point
 #[entry]
 fn main() -> ! {
     let (our_turn, next_core) = if cfg!(core = "0") {
@@ -88,11 +88,14 @@ fn main() -> ! {
     let mut done = false;
     while !done {
         // try to acquire the lock
-        while SEMAPHORE.compare_and_swap(our_turn, LOCKED, Ordering::AcqRel) != our_turn {
+        while SEMAPHORE
+            .compare_exchange(our_turn, LOCKED, Ordering::AcqRel, Ordering::Relaxed)
+            .is_err()
+        {
             // spin wait
         }
 
-        // we acquired the lock; we now have exclusive access to the `SHARED` variable
+        // we acquired the lock; now we have exclusive access to `SHARED`
         unsafe {
             if SHARED >= 10 {
                 done = true;
@@ -115,9 +118,9 @@ fn main() -> ! {
 
 In this example we have two static variables in shared memory and visible to
 both cores (\*). One of the variables, `SEMAPHORE`, is used to synchronize
-access to the `SHARED` variable. Both cores will execute the `main` function at
-boot but they will execute slightly different code paths due to the use of the
-`cfg!` macro.
+access to the non-atomic `SHARED` variable. Both cores will execute the `main`
+function at boot but they will execute slightly different code paths due to the
+use of the `cfg!` macro.
 
 To build the application we use the following command:
 
@@ -131,30 +134,28 @@ $ cargo microamp --bin app
     Finished dev [unoptimized + debuginfo] target(s) in 0.12s
 ```
 
-The command produces two images, one for core.
+By default the command produces two images, one for core.
 
 ``` console
 $ # image for first core
 $ size -Ax target/armv7r-none-eabi/debug/examples/app-0
 target/armv7r-none-eabi/debug/examples/app-0  :
 section              size         addr
-.text              0x5024          0x0
-.rodata            0x198c   0xffe20000
-.bss                  0x0   0xffe2198c
-.data                 0x0   0xffe2198c
-.shared               0x8   0xfffc0000
-.ocm                  0x0   0xfffd0000
+.text              0x56e8          0x0
+.rodata            0x198c       0x5700
+.bss                  0x0   0xfffc0000
+.data                 0x0   0xfffc0000
+.shared               0x9   0xfffe0000
 
 $ # image for second core
 $ size -Ax target/armv7r-none-eabi/debug/examples/app-1
 target/armv7r-none-eabi/debug/examples/app-1  :
 section              size         addr
-.text              0x5024          0x0
-.rodata            0x198c   0xffeb0000
-.bss                  0x0   0xffeb198c
-.data                 0x0   0xffeb198c
-.shared               0x8   0xfffc0000
-.ocm                  0x0   0xfffe0000
+.text              0x56e8          0x0
+.rodata            0x198c       0x5700
+.bss                  0x0   0xfffd0000
+.data                 0x0   0xfffd0000
+.shared               0x9   0xfffe0000
 ```
 
 Running the program produces the following output:
@@ -196,15 +197,11 @@ The user, or a crate, must provide one linker script *per core*. The
 `cargo-microamp` tool will use these linker scripts to link the program for each
 core and expects them to be named `core0.x`, `core1.x`, etc.
 
-This linker script must contain the following command:
-
-``` text
-INPUT(microamp-data.o);
-```
-
-This object file contains all the `#[shared]` variables. These variables must be
-placed in the *same* memory region at the *same* start address on both cores.
-For example:
+`cargo-microamp` will pass a file named `microamp-data.o` to the linker when
+linking each image. This object file contains all the `#[shared]` variables
+in a section named `.shared`. These variables must be placed in an output
+section named `.shared`. This section must be located at the *same* address on
+all images. For example:
 
 ``` console
 $ cat core0.x
@@ -241,7 +238,7 @@ SECTIONS
 
 Furthermore care must be taken to *not* initialize this `.shared` link section
 *more than once*. In the above example, the shared variables are initialized
-when the first program is load into memory.
+when the first image is load into memory.
 
 ## License
 

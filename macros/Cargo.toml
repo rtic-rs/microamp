@@ -1,7 +1,13 @@
 [package]
 authors = ["Jorge Aparicio <jorge@japaric.io>"]
+categories = ["concurrency", "embedded", "no-std"]
+description = "μAMP's `#[shared]` attribute"
+documentation = "https://docs.rs/microamp-macros"
 edition = "2018"
+keywords = ["AMP", "asymmetric"]
+license = "MIT OR Apache-2.0"
 name = "microamp-macros"
+repository = "https://github.com/japaric/microamp"
 version = "0.1.0-alpha.1"
 
 [lib]

@@ -1,7 +1,12 @@
 [package]
 authors = ["Jorge Aparicio <jorge@japaric.io>"]
+categories = ["command-line-utilities", "concurrency", "embedded", "no-std"]
+description = "Build a μAMP application"
 edition = "2018"
+keywords = ["AMP", "asymmetric"]
+license = "MIT OR Apache-2.0"
 name = "microamp-tools"
+repository = "https://github.com/japaric/microamp"
 version = "0.1.0-alpha.1"
 
 [dependencies]

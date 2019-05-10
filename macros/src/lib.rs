@@ -12,6 +12,8 @@ use quote::quote;
 use syn::{parse, parse_macro_input, ItemStatic};
 
 /// An attribute to place a static variable in shared memory
+///
+/// This static variable will refer to the same memory location on all cores
 #[proc_macro_attribute]
 pub fn shared(args: TokenStream, input: TokenStream) -> TokenStream {
     if !args.is_empty() {

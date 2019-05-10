@@ -58,19 +58,18 @@ use core::sync::atomic::{AtomicU8, Ordering};
 
 use arm_dcc::dprintln;
 use microamp::shared;
-// use panic_halt as _;
-use panic_dcc as _;
+use panic_dcc as _; // panic handler
 use zup_rt::entry;
 
 // non-atomic variable
-#[shared] // <- means: visible to all the cores
+#[shared] // <- means: same memory location on all the cores
 static mut SHARED: u64 = 0;
 
 // used to synchronize access to `SHARED`
 #[shared]
 static SEMAPHORE: AtomicU8 = AtomicU8::new(CORE0);
 
-// possible values of SEMAPHORE
+// possible values for SEMAPHORE
 const CORE0: u8 = 0;
 const CORE1: u8 = 1;
 const LOCKED: u8 = 2;
@@ -92,12 +91,13 @@ fn main() -> ! {
             .compare_exchange(our_turn, LOCKED, Ordering::AcqRel, Ordering::Relaxed)
             .is_err()
         {
-            // spin wait
+            // busy wait if the lock is held by the other core
         }
 
         // we acquired the lock; now we have exclusive access to `SHARED`
         unsafe {
             if SHARED >= 10 {
+                // stop at some arbitrary point
                 done = true;
             } else {
                 dprintln!("{}", SHARED);
@@ -125,7 +125,7 @@ use of the `cfg!` macro.
 To build the application we use the following command:
 
 ``` console
-$ cargo microamp --bin app
+$ cargo microamp --bin app --release
    Compiling zup-rtfm v0.1.0 (/tmp/firmware)
     Finished dev [unoptimized + debuginfo] target(s) in 0.32s
    Compiling zup-rtfm v0.1.0 (/tmp/firmware)
@@ -138,49 +138,69 @@ By default the command produces two images, one for core.
 
 ``` console
 $ # image for first core
-$ size -Ax target/armv7r-none-eabi/debug/examples/app-0
-target/armv7r-none-eabi/debug/examples/app-0  :
-section              size         addr
-.text              0x56e8          0x0
-.rodata            0x198c       0x5700
-.bss                  0x0   0xfffc0000
-.data                 0x0   0xfffc0000
-.shared               0x9   0xfffe0000
+$ size -Ax target/armv7r-none-eabi/release/examples/app-0
+target/armv7r-none-eabi/release/examples/app-0  :
+section             size         addr
+.text              0x360          0x0
+.local               0x0      0x20000
+.bss                 0x0   0xfffc0000
+.data                0x0   0xfffc0000
+.rodata             0x40   0xfffc0000
+.shared             0x10   0xfffe0000
 
 $ # image for second core
-$ size -Ax target/armv7r-none-eabi/debug/examples/app-1
-target/armv7r-none-eabi/debug/examples/app-1  :
-section              size         addr
-.text              0x56e8          0x0
-.rodata            0x198c       0x5700
-.bss                  0x0   0xfffd0000
-.data                 0x0   0xfffd0000
-.shared               0x9   0xfffe0000
+$ size -Ax target/armv7r-none-eabi/release/examples/app-1
+target/armv7r-none-eabi/release/examples/app-1  :
+section             size         addr
+.text              0x360          0x0
+.local               0x0      0x20000
+.bss                 0x0   0xfffd0000
+.data                0x0   0xfffd0000
+.rodata             0x40   0xfffd0000
+.shared             0x10   0xfffe0000
 ```
 
-Running the program produces the following output:
+If we run the image on core #0 we'll see:
 
-- Core #0
+``` console
+$ # on another terminal: load and run the program
+$ CORE=0 xsdb -interactive debug.tcl amp-shared-0
 
-``` text
+$ # output of core #0
 $ tail -f dcc0.log
+START
 0
-2
-4
-6
-8
-DONE
 ```
 
-- Core #1
+That the program halts because it's waiting for the other core. Now, we run the
+other image on core #1.
 
-``` text
+``` console
+$ # on another terminal: load and run the program
+$ CORE=1 xsdb -interactive debug.tcl amp-shared-1
+
+$ # output of core #1
 $ tail -f dcc1.log
+START
 1
 3
 5
 7
 9
+DONE
+```
+
+And we'll get new output from core #0.
+
+``` console
+$ # output of core #0
+$ tail -f dcc0.log
+START
+0
+2
+4
+6
+8
 DONE
 ```
 
@@ -238,7 +258,7 @@ SECTIONS
 
 Furthermore care must be taken to *not* initialize this `.shared` link section
 *more than once*. In the above example, the shared variables are initialized
-when the first image is load into memory.
+when the *first* image is loaded into memory.
 
 ## License
 

@@ -7,7 +7,7 @@ keywords = ["AMP", "asymmetric"]
 license = "MIT OR Apache-2.0"
 name = "microamp-tools"
 repository = "https://github.com/japaric/microamp"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 
 [dependencies]
 cargo-project = "0.2.2"

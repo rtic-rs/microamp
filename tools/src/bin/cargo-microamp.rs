@@ -41,14 +41,13 @@ fn run() -> Result<i32, failure::Error> {
                 .value_name("N")
                 .help("Number of cores to build this program for (default: 2)"),
         )
-        // TODO we need one target per core
-        // .arg(
-        //     Arg::with_name("target")
-        //         .long("target")
-        //         .takes_value(true)
-        //         .value_name("TRIPLE")
-        //         .help("Target triple for which the code is compiled"),
-        // )
+        .arg(
+            Arg::with_name("target")
+                .long("target")
+                .takes_value(true)
+                .value_name("TRIPLE")
+                .help("Comma separated list of target triples for which the code is compiled"),
+        )
         .arg(
             Arg::with_name("verbose")
                 .long("verbose")
@@ -116,6 +115,15 @@ fn run() -> Result<i32, failure::Error> {
         _ => bail!("please specify --example <NAME> or --bin <NAME>"),
     };
 
+    let targets = if let Some(target) = matches.value_of("target") {
+        target
+            .split(',')
+            .map(|s| if s == "_" { None } else { Some(s) })
+            .collect()
+    } else {
+        vec![]
+    };
+
     let meta = rustc_version::version_meta()?;
     let host = meta.host;
     let project = Project::query(env::current_dir()?)?;
@@ -175,31 +183,62 @@ fn run() -> Result<i32, failure::Error> {
         } else if let Some(features) = matches.value_of("features") {
             c.args(&["--features", features]);
         }
-        c.arg("--");
         c
     };
 
     if check {
-        let mut c = cargo();
-        c.args(&[
-            "--cfg",
-            "microamp",
-            "-C",
-            "linker=microamp-true",
-            "-A",
-            "warnings",
-        ]);
-        if verbose {
-            eprintln!("{:?}", c);
-        }
-        let status = c.status()?;
-        if !status.success() {
-            return Ok(status.code().unwrap_or(1));
+        if targets.is_empty() {
+            // data
+            let mut c = cargo();
+            c.args(&[
+                "--",
+                "--cfg",
+                "microamp",
+                "-C",
+                "linker=microamp-true",
+                "-A",
+                "warnings",
+            ]);
+            if verbose {
+                eprintln!("{:?}", c);
+            }
+            let status = c.status()?;
+            if !status.success() {
+                return Ok(status.code().unwrap_or(1));
+            }
         }
 
         for i in 0..cores {
+            // data
+            if !targets.is_empty() {
+                let mut c = cargo();
+                if let Some(target) = targets.get(i).unwrap_or(&None) {
+                    c.args(&["--target", target]);
+                }
+                c.args(&[
+                    "--",
+                    "--cfg",
+                    "microamp",
+                    "-C",
+                    "linker=microamp-true",
+                    "-A",
+                    "warnings",
+                ]);
+                if verbose {
+                    eprintln!("{:?}", c);
+                }
+                let status = c.status()?;
+                if !status.success() {
+                    return Ok(status.code().unwrap_or(1));
+                }
+            }
+
+            // code
             let mut c = cargo();
-            c.arg("--cfg");
+            if let Some(target) = targets.get(i).unwrap_or(&None) {
+                c.args(&["--target", target]);
+            }
+            c.args(&["--", "--cfg"]);
             c.arg(&format!("core=\"{}\"", i));
             c.args(&["-C", "linker=microamp-true"]);
             if verbose {
@@ -211,86 +250,99 @@ fn run() -> Result<i32, failure::Error> {
             }
         }
     } else {
-        let mut c = cargo();
-        c.args(&[
-            "-C",
-            "lto",
-            "--cfg",
-            "microamp",
-            "--emit=obj",
-            "-A",
-            "warnings",
-            "-C",
-            "linker=microamp-true",
-        ]);
-        if verbose {
-            eprintln!("{:?}", c);
-        }
-        let status = c.status()?;
-        if !status.success() {
-            return Ok(status.code().unwrap_or(1));
-        }
-
-        let path = project.path(artifact, build_profile, None, &host)?;
-        let parent = path.parent().expect("unreachable");
-        let (haystack, name) = match artifact {
-            Artifact::Bin(bin) => (parent.join("deps"), bin),
-            Artifact::Example(ex) => (parent.to_owned(), ex),
-            _ => unreachable!(),
-        };
-
-        let prefix = format!("{}-", name.replace('-', "_"));
-        let mut so = None;
-        // most recently modified
-        let mut mrm = SystemTime::UNIX_EPOCH;
-        for e in fs::read_dir(haystack)? {
-            let e = e?;
-            let p = e.path();
-
-            if p.extension().map(|ext| ext == "o").unwrap_or(false)
-                && p.file_stem()
-                    .expect("unreachable")
-                    .to_str()
-                    .expect("unreachable")
-                    .starts_with(&prefix)
-            {
-                let modified = e.metadata()?.modified()?;
-                if so.is_none() {
-                    so = Some(p);
-                    mrm = modified;
-                } else {
-                    if modified > mrm {
-                        so = Some(p);
-                        mrm = modified;
-                    }
-                }
-            }
-        }
-
-        // strip '.text' sections from the shared object file
-        let so = so.expect("UNREACHABLE");
-        let td = TempDir::new("cargo-microamp")?;
-        let obj = td.path().join("microamp-data.o");
-        fs::copy(&so, &obj)?;
-
-        // FIXME use a Rust library instead of shelling out to `strip`
-        let mut c = Command::new("arm-none-eabi-strip");
-        c.args(&["-R", "*", "-R", "!.shared", "--strip-unneeded"])
-            .arg(&obj);
-        if verbose {
-            eprintln!("{:?}", c);
-        }
-
-        let status = c.status()?;
-        if !status.success() {
-            return Ok(status.code().unwrap_or(1));
-        }
-
         // address -> (size, name)
         let mut base: Option<(String, Symbols)> = None;
         for i in 0..cores {
             let mut c = cargo();
+            if let Some(target) = targets.get(i).unwrap_or(&None) {
+                c.args(&["--target", target]);
+            }
             c.args(&[
+                "--",
+                "-C",
+                "lto",
+                "--cfg",
+                "microamp",
+                "--emit=obj",
+                "-A",
+                "warnings",
+                "-C",
+                "linker=microamp-true",
+            ]);
+            if verbose {
+                eprintln!("{:?}", c);
+            }
+            let status = c.status()?;
+            if !status.success() {
+                return Ok(status.code().unwrap_or(1));
+            }
+
+            let path = project.path(
+                artifact,
+                build_profile,
+                targets.get(i).and_then(|t| t.as_ref().map(|s| *s)),
+                &host,
+            )?;
+            let parent = path.parent().expect("unreachable");
+            let (haystack, name) = match artifact {
+                Artifact::Bin(bin) => (parent.join("deps"), bin),
+                Artifact::Example(ex) => (parent.to_owned(), ex),
+                _ => unreachable!(),
+            };
+
+            let prefix = format!("{}-", name.replace('-', "_"));
+            let mut so = None;
+            // most recently modified
+            let mut mrm = SystemTime::UNIX_EPOCH;
+            for e in fs::read_dir(haystack)? {
+                let e = e?;
+                let p = e.path();
+
+                if p.extension().map(|ext| ext == "o").unwrap_or(false)
+                    && p.file_stem()
+                        .expect("unreachable")
+                        .to_str()
+                        .expect("unreachable")
+                        .starts_with(&prefix)
+                {
+                    let modified = e.metadata()?.modified()?;
+                    if so.is_none() {
+                        so = Some(p);
+                        mrm = modified;
+                    } else {
+                        if modified > mrm {
+                            so = Some(p);
+                            mrm = modified;
+                        }
+                    }
+                }
+            }
+
+            // strip '.text' sections from the shared object file
+            let so = so.expect("UNREACHABLE");
+            let td = TempDir::new("cargo-microamp")?;
+            let obj = td.path().join("microamp-data.o");
+            fs::copy(&so, &obj)?;
+
+            // FIXME use a Rust library instead of shelling out to `strip`
+            let mut c = Command::new("arm-none-eabi-strip");
+            c.args(&["-R", "*", "-R", "!.shared", "--strip-unneeded"])
+                .arg(&obj);
+            if verbose {
+                eprintln!("{:?}", c);
+            }
+
+            let status = c.status()?;
+            if !status.success() {
+                return Ok(status.code().unwrap_or(1));
+            }
+
+            let mut c = cargo();
+            if let Some(target) = targets.get(i).unwrap_or(&None) {
+                c.args(&["--target", target]);
+            }
+            c.args(&[
+                "--",
                 "--cfg",
                 &format!("core=\"{}\"", i),
                 "-C",

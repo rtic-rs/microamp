@@ -93,10 +93,26 @@ fn run() -> Result<i32, failure::Error> {
         )
         .get_matches();
 
-    let cores = matches
-        .value_of("cores")
-        .map(str::parse)
-        .unwrap_or(Ok(2_usize))?;
+    let targets = if let Some(target) = matches.value_of("target") {
+        target
+            .split(',')
+            .map(|s| if s == "_" { None } else { Some(s) })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    let cores = if let Some(s) = matches.value_of("cores") {
+        if matches.is_present("target") {
+            bail!("can't specify both `--cores` and `--target`");
+        }
+
+        s.parse()?
+    } else if matches.is_present("target") {
+        targets.len()
+    } else {
+        2
+    };
     let check = matches.is_present("check");
     let build_profile = if matches.is_present("release") {
         if check {
@@ -113,15 +129,6 @@ fn run() -> Result<i32, failure::Error> {
         (Some(bin), None) => Artifact::Bin(bin),
         (None, Some(ex)) => Artifact::Example(ex),
         _ => bail!("please specify --example <NAME> or --bin <NAME>"),
-    };
-
-    let targets = if let Some(target) = matches.value_of("target") {
-        target
-            .split(',')
-            .map(|s| if s == "_" { None } else { Some(s) })
-            .collect()
-    } else {
-        vec![]
     };
 
     let meta = rustc_version::version_meta()?;

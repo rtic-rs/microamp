@@ -50,7 +50,7 @@ rejected. To reject *all* function pointers we would need the Variadic Generics
 Here's a program that runs on a homogeneous dual-core device (2x Cortex-R5
 cores).
 
-``` rust
+``` rust, ignore
 #![no_main]
 #![no_std]
 

@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 name = "microamp"
 readme = "README.md"
 repository = "https://github.com/japaric/microamp"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 
 [dependencies]
-microamp-macros = { version = "0.1.0-alpha.1", path = "macros" }
+microamp-macros = { version = "0.1.0-alpha.3", path = "macros" }

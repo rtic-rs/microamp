@@ -7,7 +7,7 @@ edition = "2018"
 keywords = ["AMP", "asymmetric"]
 license = "MIT OR Apache-2.0"
 name = "microamp-macros"
-repository = "https://github.com/japaric/microamp"
+repository = "https://github.com/rtfm-rs/microamp"
 version = "0.1.0-alpha.3"
 
 [lib]

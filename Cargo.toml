@@ -1,5 +1,8 @@
 [package]
-authors = ["Jorge Aparicio <jorge@japaric.io>"]
+authors = [
+  "The Real Time For the Masses developers",
+  "Jorge Aparicio <jorge@japaric.io>",
+]
 categories = ["concurrency", "embedded", "no-std"]
 description = "Asymmetric Multi-Processing on microcontrollers"
 documentation = "https://docs.rs/microamp"
@@ -9,7 +12,7 @@ license = "MIT OR Apache-2.0"
 name = "microamp"
 readme = "README.md"
 repository = "https://github.com/rtfm-rs/microamp"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 
 [dependencies]
-microamp-macros = { version = "0.1.0-alpha.3", path = "macros" }
+microamp-macros = { version = "0.1.0-alpha.4", path = "macros" }

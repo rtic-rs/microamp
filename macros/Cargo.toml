@@ -1,5 +1,8 @@
 [package]
-authors = ["Jorge Aparicio <jorge@japaric.io>"]
+authors = [
+  "The Real Time For the Masses developers",
+  "Jorge Aparicio <jorge@japaric.io>",
+]
 categories = ["concurrency", "embedded", "no-std"]
 description = "μAMP's `#[shared]` attribute"
 documentation = "https://docs.rs/microamp-macros"
@@ -8,7 +11,7 @@ keywords = ["AMP", "asymmetric"]
 license = "MIT OR Apache-2.0"
 name = "microamp-macros"
 repository = "https://github.com/rtfm-rs/microamp"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 
 [lib]
 proc-macro = true

@@ -134,7 +134,7 @@ $ cargo microamp --bin app --release
     Finished dev [unoptimized + debuginfo] target(s) in 0.12s
 ```
 
-By default the command produces two images, one for core.
+By default the command produces two images, one for each core.
 
 ``` console
 $ # image for first core

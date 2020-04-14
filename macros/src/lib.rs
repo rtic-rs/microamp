@@ -3,7 +3,6 @@
 #![deny(warnings)]
 #![recursion_limit = "128"]
 
-extern crate proc_macro;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 use proc_macro::TokenStream;

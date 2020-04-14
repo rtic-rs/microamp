@@ -4,6 +4,7 @@
 #![feature(external_doc)]
 #![deny(missing_docs)]
 #![feature(optin_builtin_traits)]
+#![feature(negative_impls)]
 #![no_std]
 
 pub use microamp_macros::shared;

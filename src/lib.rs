@@ -3,7 +3,7 @@
 #![doc(include = "../README.md")]
 #![feature(external_doc)]
 #![deny(missing_docs)]
-#![feature(optin_builtin_traits)]
+#![feature(auto_traits)]
 #![feature(negative_impls)]
 #![no_std]
 

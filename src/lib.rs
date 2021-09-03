@@ -1,7 +1,6 @@
 #![deny(rust_2018_compatibility)]
 #![deny(rust_2018_idioms)]
-#![doc(include = "../README.md")]
-#![feature(external_doc)]
+#![doc = include_str!("../README.md")]
 #![deny(missing_docs)]
 #![feature(auto_traits)]
 #![feature(negative_impls)]

@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
 name = "microamp"
 readme = "README.md"
 repository = "https://github.com/rtfm-rs/microamp"
-version = "0.1.0-alpha.6"
+version = "0.1.0-alpha.7"
 
 [dependencies]
 microamp-macros = { version = "0.1.0-alpha.4", path = "macros" }
